@@ -164,28 +164,63 @@ def shoot(shot, target, speed, vspin, hspin, phi=None):
     return shot, success
 
 
-def view_shots(poolai, n_shots=10):
+def rescale(coords, table_size):
+    w, l = table_size[0], table_size[1]
+    for center in coords:
+        center[0] = center[0]*W/w
+        center[1] = center[1]*L/l
+    cue = coords[0]
+
+    if cue[0]>W/2:
+        for center in coords:
+            center[0] = W-center[0]
+    if cue[1]>L/2:
+        for center in coords:
+            center[1] = L-center[1]
+    return coords
+    
+    
+def view_shots(poolai, coords=None, n_shots=10):
     
     interface = pt.ShotViewer()
+    n_balls = poolai.n_balls
     
-    for _ in range(n_shots):
-        
-        n_balls = poolai.n_balls
-        
-        shot = create_system(n_balls, symmetry=True)
-        
+    if coords==None:
+        for _ in range(n_shots):
+
+            shot = create_system(n_balls, coords)
+
+            target = '1'
+            balls = shot.balls
+            hit = poolai.action(balls)
+
+            _, success = shoot(shot, target, hit[0], hit[1], hit[2])
+            if not success:
+                continue
+
+            # show actual shot
+            interface.show(shot)
+            
+    else:
+        shot = create_system(len(coords), coords)
+
         target = '1'
         balls = shot.balls
-        hit = poolai.action(balls)
-        
+
+        c_balls = {}
+        for label in labels[:n_balls]:
+            c_balls[label] = balls[label]
+
+        hit = poolai.action(c_balls)
+
         _, success = shoot(shot, target, hit[0], hit[1], hit[2])
         if not success:
-            continue
+            print('failed simulation')
 
         # show actual shot
         interface.show(shot)
     
-    interface.stop()
+    interface.exitfunc()
         
 def evaluate(models, n_shots=100):
     
@@ -194,7 +229,7 @@ def evaluate(models, n_shots=100):
     
     for _ in range(n_shots):
         
-        shot = create_system(n_balls, symmetry=True)
+        shot = create_system(len(coords), symmetry=True)
         
         for poolai in models:
             balls = shot.balls
